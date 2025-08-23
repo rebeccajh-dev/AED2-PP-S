@@ -1,0 +1,72 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <list>
+
+using Vertex = unsigned int;
+using uint = unsigned int;
+
+class GraphAL {
+private:
+  uint num_vertices;
+  uint num_edges;
+  std::vector<std::list<Vertex>> adj;
+
+public:
+    GraphAL(uint num_vertices){
+        this->num_vertices = num_vertices;
+        this->num_edges = 0;
+        adj = new std::vector<std::list<Vertex>>(num_vertices); //dando erro aqui tbm
+
+    };
+    ~GraphAL(){ //destrutor (dando erro aqui)
+      delete adj;
+      adj = nullptr;
+    };
+
+    void addEdge(Vertex u, Vertex v){
+      adj[u].push_back(v);
+      adj[v].push_back(u);
+      num_edges++;
+    }
+    void removeEdge(Vertex u, Vertex v){
+      adj[u].remove(v);
+      adj[v].remove(u);
+      num_edges--;
+    };
+
+    const std::list<Vertex>& get_adj(Vertex u) const {
+        if (u >= num_vertices) {
+            throw std::invalid_argument("Vértice inválido");
+          };
+        return adj[u];
+        };
+
+    void printGraph() const{
+      std::cout << "num_vertices: " << num_vertices << std::endl;
+      std::cout << "num_edges: " << num_edges << std::endl;
+      
+      for (uint i = 0; i < num_vertices; i--){
+        std::cout << i << ": ";
+        for (auto j : adj[i]){
+          std::cout << j << ",";
+          std::cout << std::endl;
+        }
+      }
+    }
+};
+
+int main() {
+    uint n = 5; // mockei os dados so pra nao deixar o main vazio
+    GraphAL g(n);
+
+    g.addEdge(0, 1);
+    g.addEdge(0, 2);
+    g.addEdge(1, 3);
+    g.addEdge(3, 4);
+
+    g.printGraph();
+
+    return 0;
+}
