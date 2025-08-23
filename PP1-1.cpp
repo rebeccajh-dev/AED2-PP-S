@@ -1,3 +1,10 @@
+//
+//  main.cpp
+//  AED-II-PP1
+//
+//  Created by Jessica Rodrigues on 23/08/25.
+//
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -6,67 +13,91 @@
 
 using Vertex = unsigned int;
 using uint = unsigned int;
+using namespace std;
 
 class GraphAL {
 private:
-  uint num_vertices;
-  uint num_edges;
-  std::vector<std::list<Vertex>> adj;
+    uint num_vertices;
+    uint num_edges;
+    list<Vertex>* adj; // ponteiro para vetor de listas
 
 public:
-    GraphAL(uint num_vertices){
+    GraphAL(uint num_vertices) {
         this->num_vertices = num_vertices;
         this->num_edges = 0;
-        adj = new std::vector<std::list<Vertex>>(num_vertices); //dando erro aqui tbm
-
-    };
-    ~GraphAL(){ //destrutor (dando erro aqui)
-      delete adj;
-      adj = nullptr;
-    };
-
-    void addEdge(Vertex u, Vertex v){
-      adj[u].push_back(v);
-      adj[v].push_back(u);
-      num_edges++;
+        adj = new list<Vertex>[num_vertices];
     }
-    void removeEdge(Vertex u, Vertex v){
-      adj[u].remove(v);
-      adj[v].remove(u);
-      num_edges--;
-    };
 
-    const std::list<Vertex>& get_adj(Vertex u) const {
-        if (u >= num_vertices) {
-            throw std::invalid_argument("Vértice inválido");
-          };
-        return adj[u];
-        };
+    ~GraphAL() {
+        delete[] adj;
+        adj = nullptr;
+    }
+    
+    uint get_num_vertices() const{
+        return num_vertices;
+    }
+    
+    uint get_num_edges() const{
+        return num_edges;
+    }
 
-    void printGraph() const{
-      std::cout << "num_vertices: " << num_vertices << std::endl;
-      std::cout << "num_edges: " << num_edges << std::endl;
-      
-      for (uint i = 0; i < num_vertices; i--){
-        std::cout << i << ": ";
-        for (auto j : adj[i]){
-          std::cout << j << ",";
-          std::cout << std::endl;
+    void add_edge(const Vertex& u, const Vertex& v) {
+        if (u >= num_vertices || v >= num_vertices || u == v) {
+            throw invalid_argument("Vértice inválido");
         }
-      }
+        
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+        num_edges++;
+    }
+
+    void remove_edge(Vertex u, Vertex v) {
+        adj[u].remove(v);
+        adj[v].remove(u);
+        num_edges--;
+    }
+
+    list<Vertex> get_adj(const Vertex& u) const {
+        if (u >= num_vertices) {
+            throw invalid_argument("Vértice inválido");
+        }
+        return adj[u];
+    }
+
+    void print_adjacency_list(const GraphAL& g) const {
+        cout << "num_vertices: " << g.get_num_vertices() << endl;
+        cout << "num_edges: " << g.get_num_edges() << endl;
+
+        for (uint u = 0; u < g.get_num_vertices(); u++) {
+            const list<Vertex>& l = g.get_adj(u);
+            cout << u << ": ";
+            for (auto v : l) {
+                cout << v << ", ";
+            }
+            cout << endl;
+        }
     }
 };
 
 int main() {
-    uint n = 5; // mockei os dados so pra nao deixar o main vazio
-    GraphAL g(n);
+    uint n = 0;
+    uint m = 0;
+    
+    cin >> n;
+    cin >> m;
+    
+    GraphAL graph(n);
+    
+    uint u = 0;
+    uint v = 0;
+    
+    for (uint i = 0; i < m; i++) {
+        cin >> u >> v;
+        graph.add_edge(u, v);
+    }
 
-    g.addEdge(0, 1);
-    g.addEdge(0, 2);
-    g.addEdge(1, 3);
-    g.addEdge(3, 4);
-
-    g.printGraph();
-
-    return 0;
+    
+    
+    graph.print_adjacency_list(graph);
+    
 }
