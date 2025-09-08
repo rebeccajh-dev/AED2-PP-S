@@ -1,103 +1,184 @@
 //
 //  main.cpp
-//  AED-II-PP1
+//  AED-PP2
 //
-//  Created by Jessica Rodrigues on 23/08/25.
+//  Created by Jessica Rodrigues on 07/09/25.
 //
 
-#include <iostream>
 #include <vector>
-#include <string>
-#include <algorithm>
+#include <strings.h>
+#include <limits>
 #include <list>
+#include <iostream>
 
-using Vertex = unsigned int;
-using uint = unsigned int;
 using namespace std;
 
-class GraphAL {
+class Queue{
+    private:
+        list<pair<int, int>> data;
+    
+    public:
+        void enqueue(pair<int, int> value) {
+          data.push_back(value);
+        }
+    
+        pair<int,int> unqueue() {
+          pair<int, int> value = data.front();
+          data.pop_front();
+          return value;
+        }
+    
+        bool empty(){
+          return data.empty();
+        }
+    };
+
+class Board {
 private:
-    uint num_vertices;
-    uint num_edges;
-    list<Vertex>* adj; // ponteiro para vetor de listas
+    static bool onLimit(int i, int j) {
+        return (i >= 0 && i < 8 && j >= 0 && j < 8);
+    }
 
 public:
-    GraphAL(uint num_vertices) {
-        this->num_vertices = num_vertices;
-        this->num_edges = 0;
-        adj = new list<Vertex>[num_vertices];
-    }
+    static vector<pair<int,int>> possibleMoves(int i, int j) {
+        vector<pair<int,int>> moves;
+        int deslocs[8][2] = {
+            {2, 1}, {2, -1}, {-2, 1}, {-2, -1},
+            {1, 2}, {1, -2}, {-1, 2}, {-1, -2}
+        };
 
-    ~GraphAL() {
-        delete[] adj;
-        adj = nullptr;
-    }
-    
-    uint get_num_vertices() const{
-        return num_vertices;
-    }
-    
-    uint get_num_edges() const{
-        return num_edges;
-    }
-
-    void add_edge(const Vertex& u, const Vertex& v) {
-        if (u >= num_vertices || v >= num_vertices || u == v) {
-            throw invalid_argument("Vértice inválido");
-        }
-        
-        adj[u].push_back(v);
-        adj[v].push_back(u);
-        num_edges++;
-    }
-
-    void remove_edge(Vertex u, Vertex v) {
-        adj[u].remove(v);
-        adj[v].remove(u);
-        num_edges--;
-    }
-
-    list<Vertex> get_adj(const Vertex& u) const {
-        if (u >= num_vertices) {
-            throw invalid_argument("Vértice inválido");
-        }
-        return adj[u];
-    }
-
-    void print_adjacency_list(const GraphAL& g) const {
-        cout << "num_vertices: " << g.get_num_vertices() << endl;
-        cout << "num_edges: " << g.get_num_edges() << endl;
-
-        for (uint u = 0; u < g.get_num_vertices(); u++) {
-            const list<Vertex>& l = g.get_adj(u);
-            cout << u << ": ";
-            for (auto v : l) {
-                cout << v << ", ";
+        for (int k = 0; k < 8; k++) {
+            int newI = i + deslocs[k][0];
+            int newJ = j + deslocs[k][1];
+            if (onLimit(newI, newJ)) {
+                moves.push_back({newI, newJ});
             }
-            cout << endl;
         }
+        return moves;
     }
 };
 
-int main() {
-    uint n = 0;
-    uint m = 0;
-    
-    cin >> n;
-    cin >> m;
-    
-    GraphAL graph(n);
-    
-    uint u = 0;
-    uint v = 0;
-    
-    for (uint i = 0; i < m; i++) {
-        cin >> u >> v;
-        graph.add_edge(u, v);
+void bubbleSort(vector<int>& arr) {
+    int n = arr.size();
+    for (int i = 0; i < n-1; i++) {
+        for (int j = 0; j < n-i-1; j++) {
+            if (arr[j] > arr[j+1]) {
+                int temp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = temp;
+            }
+        }
+    }
+}
+
+
+class BFS {
+private:
+    int dist[8][8];
+
+public:
+    BFS() {
+        for (int i=0; i<8; i++) {
+            for (int j=0; j<8; j++) {
+                dist[i][j] = -1;
+            }
+        }
     }
 
+    int minorPath(pair<int,int> start, pair<int,int> end) {
+        Queue q;
+        dist[start.first][start.second] = 0;
+        q.enqueue(start);
+
+        while(!q.empty()) {
+            pair<int,int> current = q.unqueue();
+            int l = current.first;
+            int c = current.second;
+
+            vector<pair<int,int>> moves = Board::possibleMoves(l, c);
+            for (auto n : moves) {
+                if (dist[n.first][n.second] == -1) {
+                    dist[n.first][n.second] = dist[l][c] + 1;
+                    q.enqueue(n);
+                }
+            }
+        }
+        return dist[end.first][end.second];
+    }
+};
+
+pair<int,int> chessToCoord(string pos) {
+    int col = pos[0] - 'a';
+    int row = pos[1] - '1';
+    return {row, col};
+}
+
+class Knight {
+private:
+    pair<int,int> pos;
+
+public:
+    Knight(string position) {
+        pos = chessToCoord(position);
+    }
+
+    pair<int,int> getPos() const {
+        return pos;
+    }
+
+    void setPos(int i, int j) {
+        pos = {i, j};
+    }
+
+
+    int minMovesTo(int i, int j) {
+        BFS bfs;
+        return bfs.minorPath(pos, {i, j});
+    }
+};
+
+void printVector(const vector<int>& v) {
+    if (v.empty()) return;
     
+    int firstPrint = v[0];
+    int count = 0;
     
-    graph.print_adjacency_list(graph);
+    while (firstPrint == v[0]) {
+        cout << firstPrint << " ";
+        count++;
+        firstPrint = v[count];
+    }
+    cout << endl;
+}
+
+int main() {
     
+    int testQnt;
+    vector<int> moves;
+    string position1, position2, position3, position4, king;
+    
+    cin >> testQnt;
+    
+    for (int i = 0; i < testQnt; i++) {
+        cin >> position1 >> position2 >> position3 >> position4 >> king;
+        Knight k1(position1);
+        Knight k2(position2);
+        Knight k3(position3);
+        Knight k4(position4);
+        
+        pair<int,int> kingPosition = chessToCoord(king);
+        
+        moves.push_back(k1.minMovesTo(kingPosition.first, kingPosition.second) - 1);
+        moves.push_back(k2.minMovesTo(kingPosition.first, kingPosition.second) - 1);
+        moves.push_back(k3.minMovesTo(kingPosition.first, kingPosition.second) - 1);
+        moves.push_back(k4.minMovesTo(kingPosition.first, kingPosition.second) - 1);
+        
+        bubbleSort(moves);
+
+        printVector(moves);
+        
+        moves.clear();
+    }
+
+    return 0;
 }
