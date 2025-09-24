@@ -13,6 +13,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <unordered_set>
 
 using namespace std;
 
@@ -20,97 +21,24 @@ using Vertex = unsigned int;
 using uint = unsigned int;
 using namespace std;
 
+using Vertex = uint;
 
-
-//supostamente o tad prioridade com heap binario ANNND dijkstra
-
-template<typename T, typename K = int>
-class BinaryHeap {
-private:
-    vector<pair<T, K>> heap; // key, value
-
-    static inline int parent(int i) { return (i - 1) / 2; }
-    static inline int left(int i) { return 2 * i + 1; }
-    static inline int right(int i) { return 2 * i + 2; }
-
-    void sift_up(int i){
-        while (i > 0 && heap[i].first < heap[parent(i)].first){
-            swap(heap[i], heap[parent(i)]);
-            i = parent(i);
-        }
-    }
-
-    void sift_down(int i){
-        int minIndex = (int)heap.size();
-        while (true) {
-            int l = left(i), r = right(i), smallest = i;
-            if (l < minIndex && heap[l].first < heap[smallest].first) smallest = l;
-            if (r < minIndex && heap[r].first < heap[smallest].first) smallest = r;
-            if (smallest == i) break;
-            swap(heap[i], heap[smallest]);
-            i = smallest;
-        }
-    }
-
-public:
-
-    bool empty() const { return heap.empty(); }
-    int size() const { return (int)heap.size(); }
-
-    void push( const T& value, const K& key){
-        heap.emplace_back(key, value);
-        sift_up((int)heap.size() - 1);
-    }
-
-    pair<T, K> pop() {
-        auto ret = heap.front();
-        heap[0] = heap.back();
-        heap.pop_back();
-        if (!heap.empty()) sift_down(0);
-        return ret;
-    }
+struct Edge {  //verificar
+    Vertex to;
+    int weight;
 };
-
-struct Edge {  //dijikstra
-    int to, w;
-};
-
-vector<int> dijkstra(int n, int src, const vector<vector<Edge>>& adj){
-    const int INF = 1e9;
-    vector<int> dist(n, INF);
-    dist[src] = 0;
-
-    BinaryHeap<int, int> pq;
-    pq.push(src, 0);
-
-    while(!pq.empty()) {
-        auto [u, d] = pq.pop();
-        if (d != dist[u]) continue;
-
-        for (auto &e : adj[u]) {
-            if (dist[u] + e.w < dist[e.to]){
-                dist[e.to] = dist[u] + e.w;
-                pq.push(e.to, dist[e.to]);
-            }
-        }
-    }
-    return dist;
-}
-
-//supostatmente usar o tal do tad prioridade com heap binario
-//usar o dijikstra para achar o menor caminho (codigo antigo dijkstra sem usar o binary heap)
 
 class GraphAL {
 private:
     uint num_vertices;
     uint num_edges;
-    list<Vertex>* adj;
+    list<Edge>* adj;
 
 public:
     GraphAL(uint num_vertices) {
         this->num_vertices = num_vertices;
         this->num_edges = 0;
-        adj = new list<Vertex>[num_vertices];
+        adj = new list<Edge>[num_vertices];
     }
 
     ~GraphAL() {
@@ -118,59 +46,181 @@ public:
         adj = nullptr;
     }
 
-    uint get_num_vertices() const{
+    uint get_num_vertices() const {
         return num_vertices;
     }
 
-    uint get_num_edges() const{
+    uint get_num_edges() const {
         return num_edges;
     }
 
-    void add_edge(const Vertex& u, const Vertex& v) {
+    void add_edge(Vertex u, Vertex v, int w) {
         if (u >= num_vertices || v >= num_vertices || u == v) {
             throw invalid_argument("Vértice inválido");
         }
-
-        adj[u].push_back(v);
-        adj[v].push_back(u);
+        adj[u].push_back({v, w});
+        adj[v].push_back({u, w}); // se for não-direcionado
         num_edges++;
     }
 
     void remove_edge(Vertex u, Vertex v) {
-        adj[u].remove(v);
-        adj[v].remove(u);
+        adj[u].remove_if([&](const Edge &e) { return e.to == v; });
+        adj[v].remove_if([&](const Edge &e) { return e.to == u; });
         num_edges--;
     }
 
-
-
-
-
-
-    list<Vertex> get_adj(const Vertex& u) const {
+    const list<Edge>& get_adj(Vertex u) const {
         if (u >= num_vertices) {
             throw invalid_argument("Vértice inválido");
         }
         return adj[u];
     }
 
-    void print_adjacency_list(const GraphAL& g) const {
-        cout << "num_vertices: " << g.get_num_vertices() << endl;
-        cout << "num_edges: " << g.get_num_edges() << endl;
+    void print_adjacency_list() const {
+        cout << "num_vertices: " << num_vertices << endl;
+        cout << "num_edges: " << num_edges << endl;
 
-        for (uint u = 0; u < g.get_num_vertices(); u++) {
-            const list<Vertex>& l = g.get_adj(u);
+        for (uint u = 0; u < num_vertices; u++) {
             cout << u << ": ";
-            for (auto v : l) {
-                cout << v << ", ";
+            for (auto e : adj[u]) {
+                cout << "(" << e.to << ", w=" << e.weight << ") ";
             }
             cout << endl;
-
-
         }
-
     }
 };
+
+
+//supostamente o tad prioridade com heap binario ANNND dijkstra
+
+template<typename T, typename K = int>
+class BinaryHeap {
+private:
+    vector<pair<T, K>> heap; // key = distância, value = vértice
+
+    static inline int parent(int i) { return (i - 1) / 2; }
+    static inline int left(int i) { return 2 * i + 1; }
+    static inline int right(int i) { return 2 * i + 2; }
+
+    void min_heapify(int i) {
+        int l = left(i), r = right(i);
+        int smallest;
+
+        if (l < heap.size() && heap[l].first < heap[i].first)
+            smallest = l;
+        else
+            smallest = i;
+
+        if (r < heap.size() && heap[r].first < heap[smallest].first)
+            smallest = r;
+
+        if (smallest != i) {
+            std::swap(heap[i], heap[smallest]);
+            min_heapify(smallest);
+        }
+    }
+
+public:
+    BinaryHeap() {}
+
+    bool empty() const { return heap.empty(); }
+
+    void push(const pair<T,K>& p) {
+        heap.push_back(p);
+        int i = heap.size() - 1;
+        while (i != 0 && heap[parent(i)].first > heap[i].first) {
+            std::swap(heap[i], heap[parent(i)]);
+            i = parent(i);
+        }
+    }
+
+    pair<T,K> extractMin() {
+        if (heap.empty()) throw runtime_error("Heap vazio");
+        pair<T,K> root = heap[0];
+        heap[0] = heap.back();
+        heap.pop_back();
+        if (!heap.empty())
+            min_heapify(0);
+        return root;
+    }
+
+    // decreaseKey precisa de um mapeamento de índice para posição do heap
+    // para simplicidade, aqui podemos reconstruir o heap
+    void decreaseKey(K value, T newKey) {
+        for (auto &p : heap) {
+            if (p.second == value) {
+                p.first = newKey;
+                break;
+            }
+        }
+        Build_Min_Heap();
+    }
+
+    void Build_Min_Heap() {
+        for (int i = heap.size() / 2 - 1; i >= 0; i--) {
+            min_heapify(i);
+        }
+    }
+};
+
+
+class Dijkstra {
+private:
+    GraphAL &g;
+    vector<int> dist;
+    vector<int> parent;
+    unordered_set<int> S; // conjunto de vértices processados
+
+public:
+    Dijkstra(GraphAL &graph) : g(graph) {}
+
+    void run(int s) {
+        int n = g.get_num_vertices();
+        dist.assign(n, INT_MAX);
+        parent.assign(n, -1);
+        S.clear();
+
+        dist[s] = 0;
+
+        // Q = min-heap (distância, vértice)
+        BinaryHeap<int,int> Q;
+        for (int i = 0; i < n; i++) {
+            Q.push({dist[i], i});
+        }
+
+        while (!Q.empty()) {
+            auto [d, u] = Q.extractMin(); 
+            S.insert(u);                  
+
+            for (auto edge : g.get_adj(u)) {
+                int v = edge.to;
+                int w = edge.weight;
+                relax(u, v, w, Q);       
+            }
+        }
+    }
+
+    void relax(int u, int v, int w, BinaryHeap<int,int> &Q) {
+        if (dist[u] + w < dist[v]) {
+            dist[v] = dist[u] + w;
+            parent[v] = u;
+            Q.decreaseKey(v, dist[v]); // atualiza o heap
+        }
+    }
+
+    int getDistance(int v) const { return dist[v]; }
+
+    vector<int> getPath(int v) const {
+        vector<int> path;
+        for (; v != -1; v = parent[v])
+            path.push_back(v);
+        reverse(path.begin(), path.end());
+        return path;
+    }
+};
+
+//supostatmente usar o tal do tad prioridade com heap binario
+//usar o dijikstra para achar o menor caminho (codigo antigo dijkstra sem usar o binary heap)
 
 class Queue{
     private:
