@@ -5,45 +5,35 @@
 //  Created by Jessica Rodrigues on 07/09/25.
 //
 
+#include <iostream>
 #include <vector>
-#include <strings.h>
-#include <limits>
 #include <list>
-#include <iostream>
-#include <iostream>
-#include <vector>
 #include <string>
+#include <utility>
+#include <limits>
 #include <unordered_set>
+#include <algorithm>
+#include <climits>
 
 using namespace std;
-
 using Vertex = unsigned int;
 using uint = unsigned int;
-using namespace std;
 
-using Vertex = uint;
-
-struct Edge {  //verificar
-    Vertex to;
-    int weight;
-};
 
 class GraphAL {
 private:
     uint num_vertices;
     uint num_edges;
-    list<Edge>* adj;
+    vector<list<pair<int,int>>> adj;
 
 public:
     GraphAL(uint num_vertices) {
         this->num_vertices = num_vertices;
         this->num_edges = 0;
-        adj = new list<Edge>[num_vertices];
+        adj.resize(num_vertices);
     }
 
-    ~GraphAL() {
-        delete[] adj;
-        adj = nullptr;
+    ~GraphAL() { //como criei um vector, o cleanup é feito automaticamente
     }
 
     uint get_num_vertices() const {
@@ -64,16 +54,63 @@ public:
     }
 
     void remove_edge(Vertex u, Vertex v) {
-        adj[u].remove_if([&](const Edge &e) { return e.to == v; });
-        adj[v].remove_if([&](const Edge &e) { return e.to == u; });
+        adj[u].remove_if([&](const pair<int,int>& e) { return e.first == v; });
+        adj[v].remove_if([&](const pair<int,int> &e) { return e.first == u; });
         num_edges--;
     }
 
-    const list<Edge>& get_adj(Vertex u) const {
+    const list<pair<int,int>>& neighbors(Vertex u) const {
         if (u >= num_vertices) {
             throw invalid_argument("Vértice inválido");
         }
         return adj[u];
+    }
+
+
+    uint positionToVertex(const string& pos, int boardSize){
+        char alpha = pos[0];
+        int i = alpha - 'a';
+        int j = stoi(pos.substr(1)) - 1;
+
+        return i * boardSize + j;
+    }
+
+    string vertexToPosition(uint v, int boardSize){
+        int i = v / boardSize;
+        int j = v % boardSize;
+        char alpha = 'a' + i;
+        string beta = to_string(j+1);
+        return string(1, alpha) + beta;
+    }
+
+    void generate_Graph(int boardSize){
+        int moves[8][2] = {
+        {1, 2}, {2, 1}, {2, -1}, {1, -2},
+        {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}
+        };
+        for (int i = 0; i < boardSize; i++){
+            for (int j = 0; j < boardSize; j++){
+                int u = i*boardSize + j;
+
+                for (auto &m : moves) {
+                    int ni = i + m[0];
+                    int nj = j + m[1];
+
+                    if (ni >= 0 && ni < boardSize && nj >= 0 && nj < boardSize){
+                        int v = ni*boardSize + nj;
+
+                        char alpha_u = 'a' + i;
+                        char alpha_v = 'a' + ni;
+                        int beta_u = j + 1;
+                        int beta_v = nj + 1;
+
+                        int weight = ((int)alpha_u * beta_u + (int)alpha_v * beta_v) % 19;
+                        add_edge(u, v, weight);
+                        
+                    }
+                }
+            }
+        }
     }
 
     void print_adjacency_list() const {
@@ -83,7 +120,7 @@ public:
         for (uint u = 0; u < num_vertices; u++) {
             cout << u << ": ";
             for (auto e : adj[u]) {
-                cout << "(" << e.to << ", w=" << e.weight << ") ";
+                cout << "(" << e.first << ", w=" << e.second << ") ";
             }
             cout << endl;
         }
@@ -97,10 +134,25 @@ template<typename T, typename K = int>
 class BinaryHeap {
 private:
     vector<pair<T, K>> heap; // key = distância, value = vértice
+    vector<int> pos;
 
     static inline int parent(int i) { return (i - 1) / 2; }
     static inline int left(int i) { return 2 * i + 1; }
     static inline int right(int i) { return 2 * i + 2; }
+
+    void swapNodes(int i, int j) {
+        // Atualiza as posições no vetor pos
+        int tempPos = pos[heap[i].second];
+        pos[heap[i].second] = pos[heap[j].second];
+        pos[heap[j].second] = tempPos;
+
+        // Troca os elementos do heap manualmente
+        pair<T, K> temp = heap[i];
+        heap[i] = heap[j];
+        heap[j] = temp;
+    }
+
+
 
     void min_heapify(int i) {
         int l = left(i), r = right(i);
@@ -115,21 +167,26 @@ private:
             smallest = r;
 
         if (smallest != i) {
-            std::swap(heap[i], heap[smallest]);
+            swapNodes(i, smallest);
             min_heapify(smallest);
         }
     }
 
-public:
-    BinaryHeap() {}
 
-    bool empty() const { return heap.empty(); }
+
+public:
+    BinaryHeap(int maxVertices) {
+        pos.resize(maxVertices, -1);
+    }
+
+    bool empty() const { return heap.empty(); } //feito
 
     void push(const pair<T,K>& p) {
         heap.push_back(p);
         int i = heap.size() - 1;
+        pos[p.second] = i;
         while (i != 0 && heap[parent(i)].first > heap[i].first) {
-            std::swap(heap[i], heap[parent(i)]);
+            swapNodes(i, parent(i));
             i = parent(i);
         }
     }
@@ -137,8 +194,9 @@ public:
     pair<T,K> extractMin() {
         if (heap.empty()) throw runtime_error("Heap vazio");
         pair<T,K> root = heap[0];
-        heap[0] = heap.back();
+        swapNodes(0, heap.size() -1);
         heap.pop_back();
+        pos[root.second] = -1;
         if (!heap.empty())
             min_heapify(0);
         return root;
@@ -146,22 +204,18 @@ public:
 
     // decreaseKey precisa de um mapeamento de índice para posição do heap
     // para simplicidade, aqui podemos reconstruir o heap
-    void decreaseKey(K value, T newKey) {
-        for (auto &p : heap) {
-            if (p.second == value) {
-                p.first = newKey;
-                break;
-            }
-        }
-        Build_Min_Heap();
-    }
+    void decreaseKey(K value, T newKey) { //feito
+        int i = pos[value];
+        if (i == -1) return;
 
-    void Build_Min_Heap() {
-        for (int i = heap.size() / 2 - 1; i >= 0; i--) {
-            min_heapify(i);
+        if (newKey >= heap[i].first) return;
+        heap[i].first = newKey;
+
+        while (i > 0 && heap[parent(i)].first > heap[i].first){
+            swapNodes(i, parent(i));
+            i = parent(i);
         }
-    }
-};
+
 
 
 class Dijkstra {
@@ -169,58 +223,54 @@ private:
     GraphAL &g;
     vector<int> dist;
     vector<int> parent;
-    unordered_set<int> S; // conjunto de vértices processados
 
 public:
-    Dijkstra(GraphAL &graph) : g(graph) {}
+    Dijkstra(GraphAL &graph) : g(graph) {
+        dist.resize(g.get_num_vertices(), numeric_limits<int>::max());
+        parent.resize(g.get_num_vertices(), -1);
+    }
 
-    void run(int s) {
-        int n = g.get_num_vertices();
-        dist.assign(n, INT_MAX);
-        parent.assign(n, -1);
-        S.clear();
-
-        dist[s] = 0;
-
-        // Q = min-heap (distância, vértice)
-        BinaryHeap<int,int> Q;
-        for (int i = 0; i < n; i++) {
+    void shortestPath(int s) {
+        BinaryHeap<int> Q(g.get_num_vertices());
+        for (int i = 0; i < g.get_num_vertices(); i++) {
             Q.push({dist[i], i});
         }
+        dist[s] = 0;
+        Q.decreaseKey(s, 0);
 
         while (!Q.empty()) {
-            auto [d, u] = Q.extractMin(); 
-            S.insert(u);                  
+            auto [d, u] = Q.extractMin();
 
-            for (auto edge : g.get_adj(u)) {
-                int v = edge.to;
-                int w = edge.weight;
-                relax(u, v, w, Q);       
+            // Itera sobre a lista de adjacência do vértice u
+            for (const pair<int,int>& edge : g.neighbors(u)) {
+                int v = edge.first;   // vértice vizinho
+                int w = edge.second;  // peso da aresta
+
+                if (dist[u] + w < dist[v]) {
+                    dist[v] = dist[u] + w;
+                    parent[v] = u;
+                    Q.decreaseKey(v, dist[v]);
+                }
             }
         }
-    }
 
-    void relax(int u, int v, int w, BinaryHeap<int,int> &Q) {
-        if (dist[u] + w < dist[v]) {
-            dist[v] = dist[u] + w;
-            parent[v] = u;
-            Q.decreaseKey(v, dist[v]); // atualiza o heap
-        }
     }
-
-    int getDistance(int v) const { return dist[v]; }
 
     vector<int> getPath(int v) const {
         vector<int> path;
-        for (; v != -1; v = parent[v])
-            path.push_back(v);
+        if (dist[v] == numeric_limits<int>::max()) return path;
+        for (int u = v; u != -1; u = parent[u])
+            path.push_back(u);
         reverse(path.begin(), path.end());
         return path;
     }
-};
 
+    int getDistance(int v) const { return dist[v]; }
+};
+    
 //supostatmente usar o tal do tad prioridade com heap binario
 //usar o dijikstra para achar o menor caminho (codigo antigo dijkstra sem usar o binary heap)
+//oq falta de classe: army(puvlic->(Army, getColor, getPosition, setPosition, isEnemy, allyWith, moveOneStep), storm(public -> storm(), getPosition()), simulation(simulation(boardSize), addArmy, addStorm, setCastle, run, resolveEncounters, checkEnd) e o main
 
 class Queue{
     private:
