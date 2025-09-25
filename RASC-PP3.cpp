@@ -1,71 +1,98 @@
-//
-//  main.cpp
-//  AED-PP2
-//
-//  Created by Jessica Rodrigues on 07/09/25.
-//
-
 #include <iostream>
 #include <vector>
 #include <list>
 #include <string>
 #include <utility>
 #include <limits>
-#include <unordered_set>
 #include <algorithm>
 #include <climits>
+#include <queue>
+#include <stdexcept>
 
 using namespace std;
 using Vertex = unsigned int;
 using uint = unsigned int;
 
+// ---------------- Colors  ----------------
 
+enum Color {
+    Amarelo,
+    Vermelho,
+    Branco,
+    Azul,
+    Verde,
+    Laranja,
+    Rosa,
+    Desconhecido
+};
+
+std::string colorsToString(Color s) {
+    switch (s) {
+        case Color::Amarelo:     return "amarelo";
+        case Color::Vermelho:    return "vermelho";
+        case Color::Branco:      return "branco";
+        case Color::Azul:        return "azul";
+        case Color::Verde:       return "verde";
+        case Color::Laranja:     return "laranja";
+        case Color::Rosa:        return "rosa";
+        default:                 return "Desconhecido";
+    }
+}
+
+Color stringToColor(const std::string& s) {
+    if (s == "amarelo")   return Color::Amarelo;
+    if (s == "vermelho")  return Color::Vermelho;
+    if (s == "branco")    return Color::Branco;
+    if (s == "azul")      return Color::Azul;
+    if (s == "verde")     return Color::Verde;
+    if (s == "laranja")   return Color::Laranja;
+    if (s == "rosa")      return Color::Rosa;
+    return Color::Desconhecido;
+}
+
+// ---------------- GraphAL ----------------
 class GraphAL {
 private:
     uint num_vertices;
     uint num_edges;
-    vector<list<pair<int,int>>> adj;
+    vector<list<pair<int,int>>> adj; // (neighbor, weight)
 
 public:
-    GraphAL(uint num_vertices) {
-        this->num_vertices = num_vertices;
-        this->num_edges = 0;
-        adj.resize(num_vertices);
-    }
+    GraphAL(uint n) : num_vertices(n), num_edges(0), adj(n) {}
 
-    ~GraphAL() { //como criei um vector, o cleanup é feito automaticamente
-    }
-
-    uint get_num_vertices() const {
-        return num_vertices;
-    }
-
-    uint get_num_edges() const {
-        return num_edges;
-    }
+    uint get_num_vertices() const { return num_vertices; }
+    uint get_num_edges() const { return num_edges; }
 
     void add_edge(Vertex u, Vertex v, int w) {
-        if (u >= num_vertices || v >= num_vertices || u == v) {
-            throw invalid_argument("Vértice inválido");
+        if (u >= num_vertices || v >= num_vertices) {
+            throw invalid_argument("Vertice invalido");
         }
-        adj[u].push_back({v, w});
-        adj[v].push_back({u, w}); // se for não-direcionado
+        if (u == v) return; // ignorar self-loop
+
+        // evitar duplicacao: checar se ja existe
+        for (auto &e : adj[u]) if (e.first == (int)v && e.second == w) return;
+
+        adj[u].push_back({(int)v, w});
+        adj[v].push_back({(int)u, w}); // grafo nao-direcionado
         num_edges++;
     }
 
+    // overload com peso padrao
+    void add_edge(Vertex u, Vertex v) { add_edge(u, v, 1); }
+
     void remove_edge(Vertex u, Vertex v) {
-        adj[u].remove_if([&](const pair<int,int>& e) { return e.first == v; });
-        adj[v].remove_if([&](const pair<int,int> &e) { return e.first == u; });
-        num_edges--;
+        if (u >= num_vertices || v >= num_vertices) return;
+        adj[u].remove_if([&](const pair<int,int>& e) { return e.first == (int)v; });
+        adj[v].remove_if([&](const pair<int,int>& e) { return e.first == (int)u; });
+        if (num_edges > 0) num_edges--;
     }
 
     const list<pair<int,int>>& neighbors(Vertex u) const {
         if (u >= num_vertices) {
-            throw invalid_argument("Vértice inválido");
+            throw invalid_argument("Vertice invalido");
         }
         return adj[u];
     }
-
 
     uint positionToVertex(const string& pos, int boardSize){
         char alpha = pos[0];
@@ -83,30 +110,36 @@ public:
         return string(1, alpha) + beta;
     }
 
-    void generate_Graph(int boardSize){
+    void generate_Graph(int boardSize) {
         int moves[8][2] = {
-        {1, 2}, {2, 1}, {2, -1}, {1, -2},
-        {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}
+            {1, 2}, {2, 1}, {2, -1}, {1, -2},
+            {-1, -2}, {-2, -1}, {-2, 1}, {-1, 2}
         };
-        for (int i = 0; i < boardSize; i++){
-            for (int j = 0; j < boardSize; j++){
-                int u = i*boardSize + j;
-
+        
+        for (int i = 0; i < boardSize; i++) {
+            for (int j = 0; j < boardSize; j++) {
+                int u = i * boardSize + j;
+                
+                char alpha_u = 'a' + i;
+                int beta_u = j + 1;
+                int ascii_alpha_u = (int)alpha_u;
+                
                 for (auto &m : moves) {
                     int ni = i + m[0];
                     int nj = j + m[1];
-
-                    if (ni >= 0 && ni < boardSize && nj >= 0 && nj < boardSize){
-                        int v = ni*boardSize + nj;
-
-                        char alpha_u = 'a' + i;
-                        char alpha_v = 'a' + ni;
-                        int beta_u = j + 1;
-                        int beta_v = nj + 1;
-
-                        int weight = ((int)alpha_u * beta_u + (int)alpha_v * beta_v) % 19;
-                        add_edge(u, v, weight);
+                    
+                    if (ni >= 0 && ni < boardSize && nj >= 0 && nj < boardSize) {
+                        int v = ni * boardSize + nj;
                         
+                        char alpha_v = 'a' + ni;
+                        int beta_v = nj + 1;
+                        int ascii_alpha_v = (int)alpha_v;
+                        
+                        if (u < v) {
+                            int weight = (ascii_alpha_u * beta_u + ascii_alpha_v * beta_v) % 19;
+                            add_edge(u, v, weight);
+                        }
+
                     }
                 }
             }
@@ -125,45 +158,42 @@ public:
             cout << endl;
         }
     }
+    
+    // retorna peso da aresta u->v ou -1 se nao existir
+    int getEdgeWeight(int u, int v) const {
+        if (u < 0 || v < 0 || u >= (int)num_vertices || v >= (int)num_vertices) return -1;
+        for (const auto &e : adj[u]) {
+            if (e.first == v) return e.second;
+        }
+        return -1;
+    }
+
 };
 
-
-//supostamente o tad prioridade com heap binario ANNND dijkstra
-
-template<typename T, typename K = int>
+// ---------------- BinaryHeap (min-heap) ----------------
+template<typename KeyT, typename ValT = int>
 class BinaryHeap {
 private:
-    vector<pair<T, K>> heap; // key = distância, value = vértice
-    vector<int> pos;
+    vector<pair<KeyT, ValT>> heap; // (key, value)
+    vector<int> pos; // map value -> index in heap (assume ValT fits into int indices)
 
     static inline int parent(int i) { return (i - 1) / 2; }
     static inline int left(int i) { return 2 * i + 1; }
     static inline int right(int i) { return 2 * i + 2; }
 
     void swapNodes(int i, int j) {
-        // Atualiza as posições no vetor pos
-        int tempPos = pos[heap[i].second];
-        pos[heap[i].second] = pos[heap[j].second];
-        pos[heap[j].second] = tempPos;
-
-        // Troca os elementos do heap manualmente
-        pair<T, K> temp = heap[i];
-        heap[i] = heap[j];
-        heap[j] = temp;
+        std::swap(heap[i], heap[j]);
+        pos[(int)heap[i].second] = i;
+        pos[(int)heap[j].second] = j;
     }
-
-
 
     void min_heapify(int i) {
         int l = left(i), r = right(i);
-        int smallest;
+        int smallest = i;
 
-        if (l < heap.size() && heap[l].first < heap[i].first)
+        if (l < (int)heap.size() && heap[l].first < heap[smallest].first)
             smallest = l;
-        else
-            smallest = i;
-
-        if (r < heap.size() && heap[r].first < heap[smallest].first)
+        if (r < (int)heap.size() && heap[r].first < heap[smallest].first)
             smallest = r;
 
         if (smallest != i) {
@@ -172,40 +202,42 @@ private:
         }
     }
 
-
-
 public:
-    BinaryHeap(int maxVertices) {
-        pos.resize(maxVertices, -1);
+    BinaryHeap(int maxVertices = 0) {
+        pos.assign(maxVertices, -1);
     }
 
-    bool empty() const { return heap.empty(); } //feito
+    bool empty() const { return heap.empty(); }
 
-    void push(const pair<T,K>& p) {
+    void push(const pair<KeyT, ValT>& p) {
         heap.push_back(p);
-        int i = heap.size() - 1;
-        pos[p.second] = i;
+        int i = (int)heap.size() - 1;
+        if ((int)pos.size() <= (int)p.second) pos.resize((int)p.second + 1, -1);
+        pos[(int)p.second] = i;
         while (i != 0 && heap[parent(i)].first > heap[i].first) {
             swapNodes(i, parent(i));
             i = parent(i);
         }
     }
 
-    pair<T,K> extractMin() {
+    pair<KeyT, ValT> extractMin() {
         if (heap.empty()) throw runtime_error("Heap vazio");
-        pair<T,K> root = heap[0];
-        swapNodes(0, heap.size() -1);
+        pair<KeyT, ValT> root = heap[0];
+        if (heap.size() == 1) {
+            heap.pop_back();
+            pos[(int)root.second] = -1;
+            return root;
+        }
+        swapNodes(0, (int)heap.size() - 1);
         heap.pop_back();
-        pos[root.second] = -1;
-        if (!heap.empty())
-            min_heapify(0);
+        pos[(int)root.second] = -1;
+        min_heapify(0);
         return root;
     }
 
-    // decreaseKey precisa de um mapeamento de índice para posição do heap
-    // para simplicidade, aqui podemos reconstruir o heap
-    void decreaseKey(K value, T newKey) { //feito
-        int i = pos[value];
+    void decreaseKey(ValT value, KeyT newKey) {
+        if ((int)value < 0 || (int)value >= (int)pos.size()) return;
+        int i = pos[(int)value];
         if (i == -1) return;
 
         if (newKey >= heap[i].first) return;
@@ -215,9 +247,10 @@ public:
             swapNodes(i, parent(i));
             i = parent(i);
         }
+    }
+};
 
-
-
+// ---------------- Dijkstra (usa BinaryHeap) ----------------
 class Dijkstra {
 private:
     GraphAL &g;
@@ -226,38 +259,44 @@ private:
 
 public:
     Dijkstra(GraphAL &graph) : g(graph) {
-        dist.resize(g.get_num_vertices(), numeric_limits<int>::max());
-        parent.resize(g.get_num_vertices(), -1);
+        dist.assign(g.get_num_vertices(), numeric_limits<int>::max());
+        parent.assign(g.get_num_vertices(), -1);
     }
 
     void shortestPath(int s) {
-        BinaryHeap<int> Q(g.get_num_vertices());
-        for (int i = 0; i < g.get_num_vertices(); i++) {
+        int n = (int)g.get_num_vertices();
+        dist.assign(n, numeric_limits<int>::max());
+        parent.assign(n, -1);
+
+        BinaryHeap<int,int> Q(n);
+        for (int i = 0; i < n; i++) {
             Q.push({dist[i], i});
         }
+
         dist[s] = 0;
         Q.decreaseKey(s, 0);
 
         while (!Q.empty()) {
             auto [d, u] = Q.extractMin();
 
-            // Itera sobre a lista de adjacência do vértice u
-            for (const pair<int,int>& edge : g.neighbors(u)) {
-                int v = edge.first;   // vértice vizinho
-                int w = edge.second;  // peso da aresta
+            if (d == numeric_limits<int>::max()) break; // remaining vertices inacessiveis
 
-                if (dist[u] + w < dist[v]) {
+            for (const pair<int,int>& edge : g.neighbors(u)) {
+                int v = edge.first;
+                int w = edge.second;
+
+                if (dist[u] != numeric_limits<int>::max() && dist[u] + w < dist[v]) {
                     dist[v] = dist[u] + w;
                     parent[v] = u;
                     Q.decreaseKey(v, dist[v]);
                 }
             }
         }
-
     }
 
     vector<int> getPath(int v) const {
         vector<int> path;
+        if (v < 0 || v >= (int)dist.size()) return path;
         if (dist[v] == numeric_limits<int>::max()) return path;
         for (int u = v; u != -1; u = parent[u])
             path.push_back(u);
@@ -267,66 +306,34 @@ public:
 
     int getDistance(int v) const { return dist[v]; }
 };
-    
-//supostatmente usar o tal do tad prioridade com heap binario
-//usar o dijikstra para achar o menor caminho (codigo antigo dijkstra sem usar o binary heap)
-//oq falta de classe: army(puvlic->(Army, getColor, getPosition, setPosition, isEnemy, allyWith, moveOneStep), storm(public -> storm(), getPosition()), simulation(simulation(boardSize), addArmy, addStorm, setCastle, run, resolveEncounters, checkEnd) e o main
 
-class Queue{
-    private:
-        list<pair<int, int>> data;
-
-    public:
-        void enqueue(pair<int, int> value) {
-          data.push_back(value);
-        }
-
-        pair<int,int> unqueue() {
-          pair<int, int> value = data.front();
-          data.pop_front();
-          return value;
-        }
-
-        bool empty(){
-          return data.empty();
-        }
-    };
-
+// ---------------- Board ----------------
 class Board {
 private:
     GraphAL g;
+    int n;
+    
+    pair<int,int> castle;
+    vector<pair<int,int>> storms;
 
-    static bool onLimit(int i, int j) {
-        return (i >= 0 && i < 8 && j >= 0 && j < 8);
+    bool onLimit(int i, int j) const {
+        return (i >= 0 && i < n && j >= 0 && j < n);
     }
 
-    static int toVertex(int i, int j) {
-        return i * 8 + j;
+    int toVertex(int i, int j) const {
+        return i * n + j;
     }
 
-    static pair<int,int> toCoord(int v) {
-        return {v / 8, v % 8};
+    pair<int,int> toCoord(int v) const {
+        return {v / n, v % n};
     }
 
 public:
+    Board(int n_) : n(n_), g(n_ * n_) {}
 
-    Board() : g(64) {
-        for(int i = 0; i < 8; i++) {
-            for(int j = 0; j < 8; j++) {
-                int v = toVertex(i, j);
-                auto moves = possibleMoves(i, j);
-                for (auto [ni, nj] : moves) {
-                    int u = toVertex(ni, nj);
-                    g.add_edge(v, u);
-                }
-            }
-        }
-    }
+    GraphAL& getGraph() { return g; }
 
-    GraphAL& getGraph() {return g;}
-
-
-    static vector<pair<int,int>> possibleMoves(int i, int j) {
+    vector<pair<int,int>> possibleMoves(int i, int j) const {
         vector<pair<int,int>> moves;
         int deslocs[8][2] = {
             {2, 1}, {2, -1}, {-2, 1}, {-2, -1},
@@ -343,19 +350,131 @@ public:
         return moves;
     }
 
-
-    static int coordToVertex(pair<int,int> pos) {
+    int coordToVertex(pair<int,int> pos) const {
         return toVertex(pos.first, pos.second);
     }
 
-    static pair<int,int> vertexToCoord(int v) {
+    pair<int,int> vertexToCoord(int v) const {
         return toCoord(v);
     }
 
+    // ====== novos metodos ======
+    void setCastle(pair<int,int> c) {
+        castle = c;
+    }
+
+    pair<int,int> getCastle() const {
+        return castle;
+    }
+
+    void addStorm(pair<int,int> s) {
+        storms.push_back(s);
+    }
+
+    const vector<pair<int,int>>& getStorms() const {
+        return storms;
+    }
+    
+    void removeStorm(pair<int,int> s) {
+        storms.erase(
+            remove(storms.begin(), storms.end(), s),
+            storms.end()
+        );
+    }
 };
 
+
+
+
+// ---------------- BFS (para movimentos do cavalo) ----------------
+class BFS {
+public:
+    int minDistance(Board& board, pair<int,int> start, pair<int,int> target) {
+        GraphAL &g = board.getGraph();
+        int n = (int)g.get_num_vertices();
+        vector<int> dist(n, -1);
+        queue<int> q;
+
+        int s = board.coordToVertex(start);
+        int t = board.coordToVertex(target);
+        if (s < 0 || s >= n || t < 0 || t >= n) return -1;
+
+        dist[s] = 0;
+        q.push(s);
+
+        while (!q.empty()) {
+            int v = q.front(); q.pop();
+            if (v == t) break;
+            for (const auto &e : g.neighbors(v)) {
+                int u = e.first;
+                if (dist[u] == -1) {
+                    dist[u] = dist[v] + 1;
+                    q.push(u);
+                }
+            }
+        }
+        return dist[t];
+    }
+};
+
+// ---------------- util: conversao entre notacao xadrez e coord ----------------
+static pair<int,int> chessToCoord(const string& s) {
+    if (s.size() < 2) return {-1, -1};
+    char file = s[0];
+    int i = file - 'a';
+    int rank = 0;
+    try {
+        rank = stoi(s.substr(1)) - 1;
+    } catch(...) {
+        return {-1, -1};
+    }
+    if (i < 0 || i >= 8 || rank < 0 || rank >= 8) return {-1, -1};
+    return {i, rank};
+}
+
+// ---------------- Knight ----------------
+class Knight {
+private:
+    pair<int,int> pos;
+    Color color;
+    vector<Color> enemies;
+    bool canMove;
+    int moves;
+    int totalWeight;
+
+public:
+    Knight(const string& position, const Color& c)
+        : pos(chessToCoord(position)), color(c), canMove(true), moves(0), totalWeight(0) {}
+
+    pair<int,int> getPos() const { return pos; }
+    void setPos(int i, int j) { pos = {i, j}; }
+
+    Color getColor() const { return color; }
+
+    void addEnemy(Color e) { enemies.push_back(e); }
+    const vector<Color>& getEnemies() const { return enemies; }
+
+    bool isEnemy(Color other) const {
+        return find(enemies.begin(), enemies.end(), other) != enemies.end();
+    }
+
+    bool canMoveNow() const { return canMove; }
+    void blockNextRound() { canMove = false; }
+    void unblock() { canMove = true; }
+
+    void addMove(int weight) {
+        moves++;
+        totalWeight += weight;
+    }
+
+    int getMoves() const { return moves; }
+    int getTotalWeight() const { return totalWeight; }
+};
+
+
+// ---------------- sort & print utils ----------------
 void bubbleSort(vector<int>& arr) {
-    int n = arr.size();
+    int n = (int)arr.size();
     for (int i = 0; i < n-1; i++) {
         for (int j = 0; j < n-i-1; j++) {
             if (arr[j] > arr[j+1]) {
@@ -367,119 +486,212 @@ void bubbleSort(vector<int>& arr) {
     }
 }
 
+void printVector(const vector<int>& v) {
+    for (size_t i = 0; i < v.size(); ++i) {
+        if (i) cout << " ";
+        cout << v[i];
+    }
+    cout << '\n';
+}
 
-// Ele tem que buscar a partir do king/knight -> ordenar os vertices com Bubble Sort
-class BFS {
-private:
-    vector<int> dist;
-    vector<int> parent;
+// ---------------- movimentacao ------------------
 
-public:
-    BFS() : dist(64, -1), parent(64, -1) {}
+bool moveOneStep(Knight &knight, Board &board) {
+    GraphAL &g = board.getGraph();
+    Dijkstra dijkstra(g);
 
-    vector<int> buildTree(Board& board, pair<int,int> start){
-        Queue q;
-        auto& g = board.getGraph();
+    int source = board.coordToVertex(knight.getPos());
+    int target = board.coordToVertex(board.getCastle());
 
-        int startV = Board::coordToVertex(start);
-        fill(dist.begin(), dist.end(), -1);
-        fill(parent.begin(), parent.end(), -1);
+    dijkstra.shortestPath(source);
+    vector<int> path = dijkstra.getPath(target);
 
-        dist[startV] = 0;
-        q.enqueue({startV, 0});
+    if (path.size() < 2) {
+        return false;
+    }
 
-        while(!q.empty()) {
-            auto [v, d] = q.unqueue();
+    int nextVertex = path[1];
+    auto [ni, nj] = board.vertexToCoord(nextVertex);
 
-            for (auto u : g.get_adj(v)) {
-                if (dist[u] == -1) {
-                    dist[u] = d + 1;
-                    parent[u] = v;
-                    q.enqueue({u, d + 1});
+    knight.setPos(ni, nj);
+
+    return true;
+}
+
+// --------------- checagens --------------
+
+bool isStorm(Board& board, pair<int,int> pos) {
+    for (auto& s : board.getStorms()) {
+        if (s == pos) return true;
+    }
+    return false;
+}
+
+vector<int> knightsAt(const vector<Knight>& knights, pair<int,int> pos) {
+    vector<int> ids;
+    for (int i = 0; i < (int)knights.size(); i++) {
+        if (knights[i].getPos() == pos) ids.push_back(i);
+    }
+    return ids;
+}
+
+
+
+
+// ---------------- main ----------------
+int main() {
+    int size;
+    int numberOfKnights;
+    
+    //O numero de linhas do tabuleiro/mapa.
+    cin >> size;
+
+    //obs: o numero de colunas do tabuleiro/mapa e igual ao numero de linhas; o menor numero de linhas e 8 e o maior e 15.
+    if (size < 8 || size > 15) {
+        throw length_error("tamanho invalido");
+    }
+
+    //A partir do numero de linhas, voce pode gerar o grafo ponderado do mapa por onde os exercitos reais caminharao.
+    Board board(size);
+    board.getGraph().generate_Graph(size);
+
+    //Em seguida, vem o numero de exercitos reais
+    cin >> numberOfKnights;
+
+    //(pode haver de 2 a 7 exercitos reais)
+    if (numberOfKnights < 2 || numberOfKnights > 7) {
+        throw length_error("numero de exercitos invalido");
+    }
+    
+    vector<Knight> knights;
+    vector<Knight> winners;
+    
+    
+    //seguido da cor do primeiro exercito, sua posicao no mapa e a lista das cores de seus inimigos
+    for (int i = 0; i < numberOfKnights; i++) {
+        string corStr, posStr;
+        cin >> corStr >> posStr;
+
+        Color c = stringToColor(corStr);
+        Knight k(posStr, c);
+
+        string rest;
+        getline(cin, rest);
+
+        string enemyStr;
+        for (size_t j = 0; j < rest.size();) {
+            while (j < rest.size() && rest[j] == ' ') j++;
+            size_t start = j;
+            while (j < rest.size() && rest[j] != ' ') j++;
+            if (start < j) {
+                enemyStr = rest.substr(start, j - start);
+                k.addEnemy(stringToColor(enemyStr));
+            }
+        }
+
+        knights.push_back(k);
+    }
+    
+    //Em seguida vem a posicao do castelo de Hunnus
+    string castlePosStr;
+    cin >> castlePosStr;
+    board.setCastle(chessToCoord(castlePosStr));
+    
+    //Seguido no numero de tormentas
+    int numStorms;
+    cin >> numStorms;
+    
+    //Seguido das posicoes das tormentas
+    for (int i = 0; i < numStorms; i++) {
+        string stormPosStr;
+        cin >> stormPosStr;
+        board.addStorm(chessToCoord(stormPosStr));
+    }
+    
+    
+    bool finished = false;
+
+    while (!finished) {
+
+        for (int i = 0; i < (int)knights.size(); i++) {
+            Knight& k = knights[i];
+
+            if (!k.canMoveNow()) {
+                k.unblock();
+                continue;
+            }
+
+            GraphAL& g = board.getGraph();
+            Dijkstra d(g);
+
+            int source = board.coordToVertex(k.getPos());
+            int target = board.coordToVertex(board.getCastle());
+
+            d.shortestPath(source);
+            auto path = d.getPath(target);
+
+            if (path.size() < 2) continue;
+
+            int nextV = path[1];
+            auto [ni, nj] = board.vertexToCoord(nextV);
+
+            auto ocupantes = knightsAt(knights, {ni, nj});
+            bool blocked = false;
+            for (int id : ocupantes) {
+                if (k.isEnemy(knights[id].getColor())) {
+                    blocked = true;
+                    break;
+                }
+            }
+
+            if (!blocked) {
+                int edgeWeight = g.getEdgeWeight(source, nextV);
+                if (edgeWeight == -1) {
+                    throw runtime_error("Erro: aresta nao encontrada!");
+                }
+                
+                k.setPos(ni, nj);
+                k.addMove(edgeWeight);
+            }
+        }
+
+        // Processa storms
+        for (auto& k : knights) {
+            if (isStorm(board, k.getPos())) {
+                auto ocupantes = knightsAt(knights, k.getPos());
+                if (ocupantes.size() == 1) {
+                    k.blockNextRound();
+                } else if (ocupantes.size() == 2) {
+                    board.removeStorm(k.getPos());
                 }
             }
         }
-        return parent;
-    }
 
-        vector<int> getPath(int startV, int endV){
-            vector<int> path;
-            for (int v = endV; v!= -1; v = parent[v]) {
-                path.push_back(v);
-                if (v == startV) break;
+        // Verifica vitoria
+        for (auto& k : knights) {
+            if (k.getPos() == board.getCastle()) {
+                winners.push_back(k);
+                finished = true;
             }
-            reverse(path.begin(), path.end());
-            return path;
-    }
-};
-
-class Knight {
-private:
-    pair<int,int> pos;
-
-public:
-    Knight(string position) {
-        pos = chessToCoord(position);
-    }
-
-    pair<int,int> getPos() const {
-        return pos;
-    }
-
-    void setPos(int i, int j) {
-        pos = {i, j};
+        }
     }
 
 
-    int minMovesTo(Board& board, int i, int j) {
-        BFS bfs;
-        return bfs.minorPath(board, pos, {i, j});
-    }
-};
 
-void printVector(const vector<int>& v) {
-    if (v.empty()) return;
+    
+    //Saida: Sequencia em ordem alfabetica das cores dos exercitos, seus numeros de movimentos no caminho e o peso do caminho, que primeiro alcancaram o castelo de Hunnus, dentro de uma rodada.
+    
+        sort(winners.begin(), winners.end(), [](const Knight& a, const Knight& b){
+            return colorsToString(a.getColor()) < colorsToString(b.getColor());
+        });
 
-    int firstPrint = v[0];
-    int count = 0;
+        for (auto& k : winners) {
+            cout << colorsToString(k.getColor()) << " " << k.getMoves() << " " << k.getTotalWeight() << " ";
+        }
 
-    while (firstPrint == v[0]) {
-        cout << firstPrint << " ";
-        count++;
-        firstPrint = v[count];
-    }
-    cout << endl;
-}
-
-int main() {
-    Board board;
-    int testQnt;
-    vector<int> moves;
-    string position1, position2, position3, position4, king;
-
-    cin >> testQnt;
-
-    for (int i = 0; i < testQnt; i++) {
-        cin >> position1 >> position2 >> position3 >> position4 >> king;
-        Knight k1(position1);
-        Knight k2(position2);
-        Knight k3(position3);
-        Knight k4(position4);
-
-        pair<int,int> kingPosition = chessToCoord(king);
-
-        moves.push_back(k1.minMovesTo(board, kingPosition.first, kingPosition.second) - 1);
-        moves.push_back(k2.minMovesTo(board, kingPosition.first, kingPosition.second) - 1);
-        moves.push_back(k3.minMovesTo(board, kingPosition.first, kingPosition.second) - 1);
-        moves.push_back(k4.minMovesTo(board, kingPosition.first, kingPosition.second) - 1);
-
-
-        bubbleSort(moves);
-
-        printVector(moves);
-
-        moves.clear();
-    }
 
     return 0;
 }
+
+
+
