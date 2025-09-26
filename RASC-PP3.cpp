@@ -428,7 +428,7 @@ public:
         : pos(position), color(c), canMove(true), moves(0), totalWeight(0) {}
 
     pair<int,int> getPos() const { return pos; }
-    void setPos(int i, int j) { pos = {i, j}; }
+    void setPosition(int i, int j) { pos = {i, j}; }
 
     Color getColor() const { return color; }
 
@@ -479,14 +479,10 @@ bool moveOneStep(Knight &knight, Board &board) {
     dijkstra.shortestPath(source);
     vector<int> path = dijkstra.getPath(target);
 
-    if (path.size() < 2) {
-        return false;
-    }
-
     int nextVertex = path[1];
     auto [ni, nj] = board.vertexToCoord(nextVertex);
 
-    knight.setPos(ni, nj);
+    knight.setPosition(ni, nj);
 
     return true;
 }
@@ -539,28 +535,28 @@ int main() {
     
     //seguido da cor do primeiro exercito, sua posicao no mapa e a lista das cores de seus inimigos
     for (int i = 0; i < numberOfKnights; i++) {
-        string corStr, posStr;
-        cin >> corStr >> posStr;
+        string color, position;
+        cin >> color >> position;
 
-        Color c = stringToColor(corStr);
+        Color c = stringToColor(color);
         
-        pair<int,int> startPos = board.position(posStr);
-        if (startPos.first == -1) {
-            throw invalid_argument("posicao inicial invalida: " + posStr);
+        pair<int,int> startPosition = board.position(position);
+        if (startPosition.first == -1) {
+            throw invalid_argument("posicao inicial invalida: " + position);
         }
-        Knight k(startPos, c);
+        Knight k(startPosition, c);
 
         string rest;
         getline(cin, rest);
 
-        string enemyStr;
+        string enemy;
         for (size_t j = 0; j < rest.size();) {
             while (j < rest.size() && rest[j] == ' ') j++;
             size_t start = j;
             while (j < rest.size() && rest[j] != ' ') j++;
             if (start < j) {
-                enemyStr = rest.substr(start, j - start);
-                k.addEnemy(stringToColor(enemyStr));
+                enemy = rest.substr(start, j - start);
+                k.addEnemy(stringToColor(enemy));
             }
         }
 
@@ -568,19 +564,19 @@ int main() {
     }
     
     //Em seguida vem a posicao do castelo de Hunnus
-    string castlePosStr;
-    cin >> castlePosStr;
-    board.setCastle(board.position(castlePosStr));
+    string castlePosition;
+    cin >> castlePosition;
+    board.setCastle(board.position(castlePosition));
     
     //Seguido no numero de tormentas
-    int numStorms;
-    cin >> numStorms;
+    int stormsNumber;
+    cin >> stormsNumber;
     
     //Seguido das posicoes das tormentas
-    for (int i = 0; i < numStorms; i++) {
-        string stormPosStr;
-        cin >> stormPosStr;
-        board.addStorm(board.position(stormPosStr));
+    for (int i = 0; i < stormsNumber; i++) {
+        string stormPosition;
+        cin >> stormPosition;
+        board.addStorm(board.position(stormPosition));
     }
     
     
@@ -607,10 +603,10 @@ int main() {
 
             if (path.size() < 2) continue;
 
-            int nextV = path[1];
-            auto [ni, nj] = board.vertexToCoord(nextV);
+            int proximo = path[1];
+            auto [a, b] = board.vertexToCoord(proximo);
 
-            auto ocupantes = knightsAt(knights, {ni, nj});
+            auto ocupantes = knightsAt(knights, {a, b});
             bool blocked = false;
             for (int id : ocupantes) {
                 if (k.isEnemy(knights[id].getColor())) {
@@ -620,12 +616,12 @@ int main() {
             }
 
             if (!blocked) {
-                int edgeWeight = g.getEdgeWeight(source, nextV);
+                int edgeWeight = g.getEdgeWeight(source, proximo);
                 if (edgeWeight == -1) {
                     throw runtime_error("Erro: aresta nao encontrada!");
                 }
                 
-                k.setPos(ni, nj);
+                k.setPosition(a, b);
                 k.addMove(edgeWeight);
             }
         }
