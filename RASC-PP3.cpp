@@ -310,8 +310,8 @@ public:
 // ---------------- Board ----------------
 class Board {
 private:
-    GraphAL g;
     int n;
+    GraphAL g;
     
     pair<int,int> castle;
     vector<pair<int,int>> storms;
@@ -358,7 +358,6 @@ public:
         return toCoord(v);
     }
 
-    // ====== novos metodos ======
     void setCastle(pair<int,int> c) {
         castle = c;
     }
@@ -381,56 +380,37 @@ public:
             storms.end()
         );
     }
-};
+    
+    string coordToPosition(pair<int,int> p) const {
+        char file = 'a' + p.first;
+        return string(1, file) + to_string(p.second + 1);
+    }
 
+    string vertexToPosition(int v) const {
+        auto c = vertexToCoord(v);
+        return coordToPosition(c);
+    }
 
+    pair<int,int> position(const string& s) const {
+        if (s.size() < 2) return {-1, -1};
 
+        char file = s[0];
+        int i = file - 'a';
 
-// ---------------- BFS (para movimentos do cavalo) ----------------
-class BFS {
-public:
-    int minDistance(Board& board, pair<int,int> start, pair<int,int> target) {
-        GraphAL &g = board.getGraph();
-        int n = (int)g.get_num_vertices();
-        vector<int> dist(n, -1);
-        queue<int> q;
-
-        int s = board.coordToVertex(start);
-        int t = board.coordToVertex(target);
-        if (s < 0 || s >= n || t < 0 || t >= n) return -1;
-
-        dist[s] = 0;
-        q.push(s);
-
-        while (!q.empty()) {
-            int v = q.front(); q.pop();
-            if (v == t) break;
-            for (const auto &e : g.neighbors(v)) {
-                int u = e.first;
-                if (dist[u] == -1) {
-                    dist[u] = dist[v] + 1;
-                    q.push(u);
-                }
-            }
+        int rank = 0;
+        for (size_t k = 1; k < s.size(); k++) {
+            char c = s[k];
+            rank = rank * 10 + (c - '0');
         }
-        return dist[t];
+                
+
+        rank -= 1;
+
+        return {i, rank};
     }
+
 };
 
-// ---------------- util: conversao entre notacao xadrez e coord ----------------
-static pair<int,int> chessToCoord(const string& s) {
-    if (s.size() < 2) return {-1, -1};
-    char file = s[0];
-    int i = file - 'a';
-    int rank = 0;
-    try {
-        rank = stoi(s.substr(1)) - 1;
-    } catch(...) {
-        return {-1, -1};
-    }
-    if (i < 0 || i >= 8 || rank < 0 || rank >= 8) return {-1, -1};
-    return {i, rank};
-}
 
 // ---------------- Knight ----------------
 class Knight {
@@ -443,8 +423,9 @@ private:
     int totalWeight;
 
 public:
-    Knight(const string& position, const Color& c)
-        : pos(chessToCoord(position)), color(c), canMove(true), moves(0), totalWeight(0) {}
+    
+    Knight(pair<int,int> position, const Color& c)
+        : pos(position), color(c), canMove(true), moves(0), totalWeight(0) {}
 
     pair<int,int> getPos() const { return pos; }
     void setPos(int i, int j) { pos = {i, j}; }
@@ -472,7 +453,7 @@ public:
 };
 
 
-// ---------------- sort & print utils ----------------
+// ---------------- sort ----------------
 void bubbleSort(vector<int>& arr) {
     int n = (int)arr.size();
     for (int i = 0; i < n-1; i++) {
@@ -484,14 +465,6 @@ void bubbleSort(vector<int>& arr) {
             }
         }
     }
-}
-
-void printVector(const vector<int>& v) {
-    for (size_t i = 0; i < v.size(); ++i) {
-        if (i) cout << " ";
-        cout << v[i];
-    }
-    cout << '\n';
 }
 
 // ---------------- movimentacao ------------------
@@ -535,9 +508,6 @@ vector<int> knightsAt(const vector<Knight>& knights, pair<int,int> pos) {
     return ids;
 }
 
-
-
-
 // ---------------- main ----------------
 int main() {
     int size;
@@ -573,7 +543,12 @@ int main() {
         cin >> corStr >> posStr;
 
         Color c = stringToColor(corStr);
-        Knight k(posStr, c);
+        
+        pair<int,int> startPos = board.position(posStr);
+        if (startPos.first == -1) {
+            throw invalid_argument("posicao inicial invalida: " + posStr);
+        }
+        Knight k(startPos, c);
 
         string rest;
         getline(cin, rest);
@@ -595,7 +570,7 @@ int main() {
     //Em seguida vem a posicao do castelo de Hunnus
     string castlePosStr;
     cin >> castlePosStr;
-    board.setCastle(chessToCoord(castlePosStr));
+    board.setCastle(board.position(castlePosStr));
     
     //Seguido no numero de tormentas
     int numStorms;
@@ -605,7 +580,7 @@ int main() {
     for (int i = 0; i < numStorms; i++) {
         string stormPosStr;
         cin >> stormPosStr;
-        board.addStorm(chessToCoord(stormPosStr));
+        board.addStorm(board.position(stormPosStr));
     }
     
     
@@ -675,8 +650,6 @@ int main() {
             }
         }
     }
-
-
 
     
     //Saida: Sequencia em ordem alfabetica das cores dos exercitos, seus numeros de movimentos no caminho e o peso do caminho, que primeiro alcancaram o castelo de Hunnus, dentro de uma rodada.
