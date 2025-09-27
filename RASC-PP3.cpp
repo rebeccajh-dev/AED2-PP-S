@@ -55,7 +55,7 @@ class GraphAL {
 private:
     uint num_vertices;
     uint num_edges;
-    vector<list<pair<int,int>>> adj; // (neighbor, weight)
+    vector<list<pair<int,int>>> adj;
 
 public:
     GraphAL(uint n) : num_vertices(n), num_edges(0), adj(n) {}
@@ -67,17 +67,17 @@ public:
         if (u >= num_vertices || v >= num_vertices) {
             throw invalid_argument("Vertice invalido");
         }
-        if (u == v) return; // ignorar self-loop
+        if (u == v) return;
 
-        // evitar duplicacao: checar se ja existe
+
         for (auto &e : adj[u]) if (e.first == (int)v && e.second == w) return;
 
         adj[u].push_back({(int)v, w});
-        adj[v].push_back({(int)u, w}); // grafo nao-direcionado
+        adj[v].push_back({(int)u, w});
         num_edges++;
     }
 
-    // overload com peso padrao
+
     void add_edge(Vertex u, Vertex v) { add_edge(u, v, 1); }
 
     void remove_edge(Vertex u, Vertex v) {
@@ -159,7 +159,6 @@ public:
         }
     }
     
-    // retorna peso da aresta u->v ou -1 se nao existir
     int getEdgeWeight(int u, int v) const {
         if (u < 0 || v < 0 || u >= (int)num_vertices || v >= (int)num_vertices) return -1;
         for (const auto &e : adj[u]) {
@@ -174,15 +173,18 @@ public:
 template<typename KeyT, typename ValT = int>
 class BinaryHeap {
 private:
-    vector<pair<KeyT, ValT>> heap; // (key, value)
-    vector<int> pos; // map value -> index in heap (assume ValT fits into int indices)
+    vector<pair<KeyT, ValT>> heap;
+    vector<int> pos;
 
     static inline int parent(int i) { return (i - 1) / 2; }
     static inline int left(int i) { return 2 * i + 1; }
     static inline int right(int i) { return 2 * i + 2; }
 
     void swapNodes(int i, int j) {
-        std::swap(heap[i], heap[j]);
+        auto temp = heap[i];
+        heap[i] = heap[j];
+        heap[j] = temp;
+
         pos[(int)heap[i].second] = i;
         pos[(int)heap[j].second] = j;
     }
@@ -295,14 +297,23 @@ public:
     }
 
     vector<int> getPath(int v) const {
-        vector<int> path;
-        if (v < 0 || v >= (int)dist.size()) return path;
-        if (dist[v] == numeric_limits<int>::max()) return path;
-        for (int u = v; u != -1; u = parent[u])
-            path.push_back(u);
-        reverse(path.begin(), path.end());
-        return path;
+    vector<int> path;
+    if (v < 0 || v >= (int)dist.size()) return path;
+    if (dist[v] == numeric_limits<int>::max()) return path;
+
+    for (int u = v; u != -1; u = parent[u])
+        path.push_back(u);
+
+
+    for (int i = 0, j = (int)path.size() - 1; i < j; i++, j--) {
+        int temp = path[i];
+        path[i] = path[j];
+        path[j] = temp;
     }
+
+    return path;
+}
+
 
     int getDistance(int v) const { return dist[v]; }
 };
@@ -375,11 +386,15 @@ public:
     }
     
     void removeStorm(pair<int,int> s) {
-        storms.erase(
-            remove(storms.begin(), storms.end(), s),
-            storms.end()
-        );
+    for (auto it = storms.begin(); it != storms.end(); ) {
+        if (*it == s) {
+            it = storms.erase(it);
+        } else {
+            ++it;
+        }
     }
+}
+
     
     string coordToPosition(pair<int,int> p) const {
         char file = 'a' + p.first;
@@ -436,8 +451,14 @@ public:
     const vector<Color>& getEnemies() const { return enemies; }
 
     bool isEnemy(Color other) const {
-        return find(enemies.begin(), enemies.end(), other) != enemies.end();
+    for (auto &c : enemies) {
+        if (c == other) {
+            return true;
+        }
     }
+    return false;
+}
+
 
     bool canMoveNow() const { return canMove; }
     void blockNextRound() { canMove = false; }
@@ -454,18 +475,20 @@ public:
 
 
 // ---------------- sort ----------------
-void bubbleSort(vector<int>& arr) {
-    int n = (int)arr.size();
-    for (int i = 0; i < n-1; i++) {
-        for (int j = 0; j < n-i-1; j++) {
-            if (arr[j] > arr[j+1]) {
-                int temp = arr[j];
-                arr[j] = arr[j+1];
-                arr[j+1] = temp;
+template <typename Iterator, typename Compare>
+void bubbleSort(Iterator first, Iterator last, Compare comp) {
+    for (auto i = first; i != last; ++i) {
+        for (auto j = first; next(j) != last - (i - first); ++j) {
+            auto k = next(j);
+            if (comp(*k, *j)) {
+                auto temp = *j;
+                *j = *k;
+                *k = temp;
             }
         }
     }
 }
+
 
 // ---------------- movimentacao ------------------
 
@@ -509,7 +532,7 @@ int main() {
     int size;
     int numberOfKnights;
     
-    //O numero de linhas do tabuleiro/mapa.
+
     cin >> size;
 
     //obs: o numero de colunas do tabuleiro/mapa e igual ao numero de linhas; o menor numero de linhas e 8 e o maior e 15.
@@ -517,14 +540,14 @@ int main() {
         throw length_error("tamanho invalido");
     }
 
-    //A partir do numero de linhas, voce pode gerar o grafo ponderado do mapa por onde os exercitos reais caminharao.
+
     Board board(size);
     board.getGraph().generate_Graph(size);
 
-    //Em seguida, vem o numero de exercitos reais
+
     cin >> numberOfKnights;
 
-    //(pode haver de 2 a 7 exercitos reais)
+
     if (numberOfKnights < 2 || numberOfKnights > 7) {
         throw length_error("numero de exercitos invalido");
     }
@@ -533,7 +556,7 @@ int main() {
     vector<Knight> winners;
     
     
-    //seguido da cor do primeiro exercito, sua posicao no mapa e a lista das cores de seus inimigos
+
     for (int i = 0; i < numberOfKnights; i++) {
         string color, position;
         cin >> color >> position;
@@ -563,16 +586,16 @@ int main() {
         knights.push_back(k);
     }
     
-    //Em seguida vem a posicao do castelo de Hunnus
+   
     string castlePosition;
     cin >> castlePosition;
     board.setCastle(board.position(castlePosition));
     
-    //Seguido no numero de tormentas
+
     int stormsNumber;
     cin >> stormsNumber;
     
-    //Seguido das posicoes das tormentas
+
     for (int i = 0; i < stormsNumber; i++) {
         string stormPosition;
         cin >> stormPosition;
@@ -626,7 +649,7 @@ int main() {
             }
         }
 
-        // Processa storms
+
         for (auto& k : knights) {
             if (isStorm(board, k.getPos())) {
                 auto ocupantes = knightsAt(knights, k.getPos());
@@ -638,7 +661,6 @@ int main() {
             }
         }
 
-        // Verifica vitoria
         for (auto& k : knights) {
             if (k.getPos() == board.getCastle()) {
                 winners.push_back(k);
@@ -648,9 +670,7 @@ int main() {
     }
 
     
-    //Saida: Sequencia em ordem alfabetica das cores dos exercitos, seus numeros de movimentos no caminho e o peso do caminho, que primeiro alcancaram o castelo de Hunnus, dentro de uma rodada.
-    
-        sort(winners.begin(), winners.end(), [](const Knight& a, const Knight& b){
+        bubbleSort(winners.begin(), winners.end(), [](const Knight& a, const Knight& b){
             return colorsToString(a.getColor()) < colorsToString(b.getColor());
         });
 
@@ -661,6 +681,5 @@ int main() {
 
     return 0;
 }
-
 
 
