@@ -4,10 +4,6 @@
 #include <string>
 #include <utility>
 #include <limits>
-#include <algorithm>
-#include <climits>
-#include <queue>
-#include <stdexcept>
 
 using namespace std;
 using Vertex = unsigned int;
